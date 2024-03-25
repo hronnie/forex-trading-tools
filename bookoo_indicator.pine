@@ -1,0 +1,19 @@
+
+//@version=5
+indicator("Bookoo fill gap", overlay=true)
+
+fillGapTitle = "Fill gaps settings"
+enableFillGapSection = input(true, title="Enable Fill Gap", group = fillGapTitle)
+
+color bullishColor = input(color.new(#4C4D5F, 1), "Bullish candle", group = fillGapTitle)
+color bearishColor = input(color.new(#5C2932, 1), "Bearish candle", group = fillGapTitle)
+
+newOpen = close[1]
+
+candleColor = newOpen <= close ? bullishColor : bearishColor
+if not enableFillGapSection
+    candleColor := na
+
+
+plotcandle(newOpen, high, low, close, color=candleColor, bordercolor=candleColor, wickcolor=candleColor)
+

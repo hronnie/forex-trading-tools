@@ -8,14 +8,16 @@ import logging
 
 mt5.initialize()
 
-# Configure logging
+current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+log_filename = f"C:\\Users\\aronharsfalvi\\Documents\\log\\trading_bot_{current_date}.log"
+
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[
-                        logging.FileHandler("trading_bot.log"),
+                        logging.FileHandler(log_filename),
                         logging.StreamHandler()
                     ])
-
 logger = logging.getLogger(__name__)
 
 def determine_conversion_symbol(account_base_currency, traded_symbol): 
@@ -173,7 +175,7 @@ def enter_position(symbol_input, stop_loss_pips_input, is_buy_input):
     base_currency_input = "EUR"
     account_balance_input = account.balance
     risk_percent_input = 1
-    leverage_input = 30
+    leverage_input = 5
 
 
     if account.margin_free == account.balance: 
@@ -224,7 +226,18 @@ def get_last_position(symbol):
 
 def main():
     global isFirstPosition
+    global stat_profit
+    global stat_loss_trades
+    global stat_win_trades
     if is_current_position_exist(bot_symbol) == False and isFirstPosition == True: # If there is no position and start, create one
+        logger.info("*****************************************************************")
+        logger.info("*****************************************************************")
+        logger.info("*****************************************************************")
+        logger.info("*****************   STRATEGY START   ****************************")
+        logger.info("*****************************************************************")
+        logger.info("*****************************************************************")
+        logger.info("*****************************************************************")
+
         is_buy_input = False
         if startDirection == "LONG": 
             is_buy_input = True
@@ -235,20 +248,35 @@ def main():
         current_last_position = get_last_position(bot_symbol)
         logger.debug(f"Last deal for {bot_symbol}: ticket={current_last_position.ticket}, type={current_last_position.type}, volume={current_last_position.volume}, price={current_last_position.price}, profit={current_last_position.profit}")
         is_buy_input = False
-        if current_last_position.profit < 0 and current_last_position.type == 1:
+        stat_profit += current_last_position.profit
+        if current_last_position.profit < 0 and current_last_position.type == mt5.ORDER_TYPE_BUY:
             logger.debug("Last SHORT position was a LOSS therefore switching to LONG")
             is_buy_input = True
-        elif current_last_position.profit >= 0 and current_last_position.type == 1:
+            stat_loss_trades += 1
+        elif current_last_position.profit >= 0 and current_last_position.type == mt5.ORDER_TYPE_BUY:
             logger.debug("Last SHORT position was WIN therefore staying to SHORT")
             is_buy_input = False
-        elif current_last_position.profit < 0 and current_last_position.type == 0:
+            stat_win_trades += 1
+        elif current_last_position.profit < 0 and current_last_position.type == mt5.ORDER_TYPE_SELL:
             logger.debug("Last LONG position was LOSS therefore switching to SHORT")
             is_buy_input = False
-        elif current_last_position.profit >= 0 and current_last_position.type == 0:
+            stat_loss_trades += 1
+        elif current_last_position.profit >= 0 and current_last_position.type == mt5.ORDER_TYPE_SELL:
             logger.debug("Last LONG position was WIN therefore staying to LONG")
             is_buy_input = True
+            stat_win_trades += 1
 
         enter_position(bot_symbol, stop_loss_pips_input, is_buy_input)
+        logger.debug("***************** START Current statistics *****************")
+        logger.debug(f"Profit: {stat_profit}")
+        logger.debug(f"Lost trades: {stat_loss_trades}")
+        logger.debug(f"Win trades: {stat_win_trades}")
+        if stat_win_trades + stat_loss_trades > 0:
+            win_ratio = (stat_win_trades / (stat_win_trades + stat_loss_trades)) * 100
+            logger.debug(f"Win Ratio: {round(win_ratio, 2)}%")
+        else:
+            logger.debug("Win Ratio: No trades completed")
+        logger.debug("***************** END Current statistics *****************")
     else:
         logger.debug('There is a running position. No action needed.')
 
@@ -256,7 +284,11 @@ isFirstPosition = True
 startDirection = "SHORT" # LONG/SHORT
 nextDirection = "" # LONG/SHORT
 bot_symbol = "EURUSD"
-stop_loss_pips_input = 5
+stop_loss_pips_input = 0.1
+
+stat_profit = 0
+stat_loss_trades = 0
+stat_win_trades = 0
 
 while True:
     logger.debug("********************** New thread is starting **********************")
